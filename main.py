@@ -1,5 +1,7 @@
 #Modules
 from tkinter import *
+from tkinter import messagebox as ms
+from tkinter import ttk
 import sqlite3 as sql
 
 #Make database and users table(if doesn't already exist)
@@ -24,13 +26,12 @@ class main:
         self.n_password = StringVar()
         self.n_question = StringVar()
         self.n_answer = StringVar()
-        self.options = tuple()
+        self.options = list()
         #Widgets
         self.widgets()
-        #Dropdown options
-        self.options = ("Q1.", "Q2.", "Q3.", "Q4.")
+        #Dropdown
+        self.options = ["1","2","3","4"]
         self.n_question.set(self.options[0])
-
 
     #Login Function
     def login(self):
@@ -82,6 +83,7 @@ class main:
         self.n_password.set('')
         self.n_question.set('')
         self.n_answer.set('')
+        self.logf.pack_forget()
         self.head['text'] = 'Register'
         self.regf.pack()
 
@@ -104,7 +106,7 @@ class main:
         Label(self.regf, text = 'Password: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
         Entry(self.regf, textvariable = self.n_password, bd = 5, font = ('', 15), show = '*').grid(row = 1, column = 1)
         Label(self.regf, text = 'Security Question: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
-        OptionMenu(self.regf, textvariable = self.n_question, value = *(self.options) ,  bd = 5, font = ('', 15)).grid(row = 2, column = 1)
+        ttk.Combobox(self.regf, textvariable = self.n_question, values = ["1","2","3","4"], font = ('', 15)).grid(row = 2, column = 1)
         Label(self.regf, text = 'Answer: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
         Entry(self.regf, textvariable = self.n_answer, bd = 5, font = ('', 15)).grid(row = 3, column = 1)
         Button(self.regf, text = 'Register', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.new_user).grid(row = 4, column = 1)

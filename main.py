@@ -35,16 +35,25 @@ class main:
         self.password = StringVar()
         self.question = StringVar()
         self.answer = StringVar()
-        self.course = StringVar()
         self.n_name = StringVar()
         self.n_username = StringVar()
         self.n_password = StringVar()
         self.n_question = StringVar()
         self.n_answer = StringVar()
-        self.n_course = StringVar()
+        self.n_level = StringVar()
+        self.subject = StringVar()
         self.studID = StringVar()
         self.studName = StringVar()
-        self.options = list()
+        self.n_subject = StringVar()
+        self.options = ["What primary school did you attend?",
+                        "What is the middle name of your father?",
+                        "What time of the day were you born?",
+                        "What was the last four digits of your first telephone number?"]
+        self.level = open("Course\Level.txt").read().splitlines()
+        self.arts = open("Course\Arts.txt").read().splitlines()
+        self.science = open("Course\Science.txt").read().splitlines()
+        self.courses = {"BA": self.arts, "BSc": self.science, "MA":self.arts, "MSc": self.science}
+
         #Widgets
         self.widgets()
 
@@ -86,9 +95,12 @@ class main:
 
     #Attendance
     def attendance(self):
-        self.course.set('')
+        self.n_level.set('')
+        self.n_subject.set('')
         self.dashBf.pack_forget()
         self.head['text'] = 'Attendance'
+        self.subCombo = ttk.Combobox(self.attendancef, textvariable = self.n_subject, font = ('', 15))
+        self.subCombo.grid(row = 0, column = 2)
         self.attendancef.pack()
 
     #Report
@@ -169,6 +181,8 @@ class main:
         font = cv2.FONT_HERSHEY_SIMPLEX
         col_names = ['ID', 'NAME', 'DATE', 'TIME']
         attendance = pd.DataFrame(columns = col_names)
+        for i in range(1, 32):
+            sheet.cell(row = 1, column = i+1).value = str(i) + '-' + str(now.month)
         while True:
             ret, im = cam.read()
             gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -183,8 +197,6 @@ class main:
                     aa = df.loc[df['ID'] == id]['Name'].values
                     tt = str(id) + "-" + aa
                     attendance.loc[len(attendance)] = [id, aa, date, timeStamp]
-                    for i in range(1, 32):
-                        sheet.cell(row = 1, column = i+1).value = str(i) + '-' + str(now.month)
                     sheet.cell(row = int(id) + 1, column = 1).value = str(tt)
                     sheet.cell(row = int(id) + 1, column = int(now.day) + 1).value = "Present"
 
@@ -199,7 +211,8 @@ class main:
             cv2.imshow('im', im)
             if (cv2.waitKey(1) == ord('q')):
                 break
-        book.save('Attendance\_' + self.n_course.get() + '-' + str(now.month)+ '.xlsx')
+        course = self.n_level.get() + self.n_subject.get()
+        book.save('Attendance\_' + course + '-' + str(now.month)+ '.xlsx')
         cam.release()
         cv2.destroyAllWindows()
         ms.showinfo("Done!")
@@ -241,6 +254,9 @@ class main:
         self.head['text'] = 'Welcome ' + name[0]
         self.dashBf.pack()
 
+    def changeSubject(self, event):
+        self.subCombo['values'] = self.courses[self.levelCombo.get()]
+
     #Draw widgets
     def widgets(self):
         self.head = Label(self.master, text = 'Login', font = ('', 35), pady = 10)
@@ -262,7 +278,7 @@ class main:
         Label(self.regf, text = 'Password: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
         Entry(self.regf, textvariable = self.n_password, bd = 5, font = ('', 15), show = '*').grid(row = 2, column = 1)
         Label(self.regf, text = 'Security Question: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
-        ttk.Combobox(self.regf, textvariable = self.n_question, values = ["1","2","3","4"], font = ('', 15)).grid(row = 3, column = 1)
+        ttk.Combobox(self.regf, textvariable = self.n_question, values = self.options, font = ('', 15)).grid(row = 3, column = 1)
         Label(self.regf, text = 'Answer: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
         Entry(self.regf, textvariable = self.n_answer, bd = 5, font = ('', 15)).grid(row = 4, column = 1)
         Button(self.regf, text = 'Register', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.new_user).grid(row = 5, column = 1)
@@ -276,7 +292,9 @@ class main:
 
         self.attendancef = Frame(self.master, padx = 10, pady = 10)
         Label(self.attendancef, text = 'Select Course: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
-        ttk.Combobox(self.attendancef, textvariable = self.n_course, values = ["MSc CA","MSc CS","MSc IMCA","MA English"], font = ('', 15)).grid(row = 0, column = 1)
+        self.levelCombo = ttk.Combobox(self.attendancef, textvariable = self.n_level, values = self.level, font = ('', 15))
+        self.levelCombo.bind('<<ComboboxSelected>>', self.changeSubject)
+        self.levelCombo.grid(row = 0, column = 1)
         Button(self.attendancef, text = 'Take Attendance', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.track).grid(row = 1, column = 1)
         Button(self.attendancef, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB).grid(row = 1, column = 2)
 

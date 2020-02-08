@@ -3,6 +3,7 @@ from tkinter import *
 from tkinter import messagebox as ms
 from tkinter import ttk
 from tkinter import font
+from tkinter import Message, Text
 import cv2
 import os
 import csv
@@ -10,8 +11,10 @@ import numpy as np
 from PIL import Image, ImageTk
 import pandas as pd
 import datetime
-import datetime
+import time
 import sqlite3 as sql
+import shutil
+from openpyxl import Workbook
 
 #Make database and users table(if doesn't already exist)
 with sql.connect('faculty.db') as db:
@@ -102,8 +105,10 @@ class main:
 
     def take_images(self):
         cam = cv2.VideoCapture(0)
+        id = self.studID.get()
+        name = self.studName.get()
         #harcascadePath = "data/haarcascade/haarcascade_frontalface_default.xml"
-        detector = cv2.CascadeClassifier('F:\GitHub\Attendance-System\data\haarcascade\haarcascade_frontalface_default.xml')
+        detector = cv2.CascadeClassifier('data\haarcascade\haarcascade_frontalface_default.xml')
         sampleNum = 0
         while True:
             ret, img = cam.read()
@@ -114,7 +119,7 @@ class main:
                 #incrementing sample number
                 sampleNum += 1
                 #saving the captured face in the dataset folder TrainingImage
-                cv2.imwrite("TrainingImage\ "+ self.studName +"_"+ self.studID +'_'+ str(sampleNum) + ".jpg", gray[y : y + h, x : x + w])
+                cv2.imwrite("TrainingImage\ "+ name +"."+ id +'.'+ str(sampleNum) + ".jpg", gray[y : y + h, x : x + w])
                 #display the frame
                 cv2.imshow('frame', img)
             #wait for 100 miliseconds
@@ -125,16 +130,81 @@ class main:
                 break
         cam.release()
         cv2.destroyAllWindows()
-        res = "Images Saved for ID : " + self.studID +" Name : "+ studName
-        row = [Id , name]
+        res = "Images Saved for ID : " + id +" Name : "+ name
+        row = [id , name]
         with open('StudentDetails\StudentDetails.csv','a+') as csvFile:
             writer = csv.writer(csvFile)
             writer.writerow(row)
         csvFile.close()
-        message.configure(text = res)
+        ms.showinfo(res)
+
+    def train(self):
+        recognizer = cv2.face.LBPHFaceRecognizer_create()
+        detector = cv2.CascadeClassifier('data\haarcascade\haarcascade_frontalface_default.xml')
+
+        imagePaths = [os.path.join('TrainingImage', f) for f in os.listdir('TrainingImage')]
+        faces = []
+        ids = []
+
+        for imagePath in imagePaths:
+            pilImage = Image.open(imagePath).convert('L')
+            imageNP = np.array(pilImage, 'uint8')
+            id = int(os.path.split(imagePath)[-1].split(".")[1])
+            faces.append(imageNP)
+            ids.append(id)
+
+        recognizer.train(faces, np.array(ids))
+        recognizer.save("TrainingImageLabel\Trainer.yml")
+        ms.showinfo("Images Saved Succesfully!")
 
     def track(self):
-        return None
+        book = Workbook()
+        sheet = book.active
+        now = datetime.datetime.now()
+        recognizer = cv2.face.LBPHFaceRecognizer_create()
+        recognizer.read("TrainingImageLabel\Trainer.yml")
+        faceCascade = cv2.CascadeClassifier('data\haarcascade\haarcascade_frontalface_default.xml')
+        df = pd.read_csv("StudentDetails\StudentDetails.csv")
+        cam = cv2.VideoCapture(0)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        col_names = ['ID', 'NAME', 'DATE', 'TIME']
+        attendance = pd.DataFrame(columns = col_names)
+        while True:
+            ret, im = cam.read()
+            gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+            faces = faceCascade.detectMultiScale(gray, 1.2, 5)
+            for(x, y, w, h) in faces:
+                cv2.rectangle(im, (x,y), (x+w, y+h), (255, 0, 0), 2)
+                id, conf = recognizer.predict(gray[y:y+h, x:x+w])
+                if conf < 50:
+                    ts = time.time()
+                    date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+                    timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                    aa = df.loc[df['ID'] == id]['Name'].values
+                    tt = str(id) + "-" + aa
+                    attendance.loc[len(attendance)] = [id, aa, date, timeStamp]
+                    for i in range(1, 32):
+                        sheet.cell(row = 1, column = i+1).value = str(i) + '-' + str(now.month)
+                    sheet.cell(row = int(id) + 1, column = 1).value = str(tt)
+                    sheet.cell(row = int(id) + 1, column = int(now.day) + 1).value = "Present"
+
+                else:
+                    id = 'Unknown'
+                    tt = str(id)
+                if conf > 75:
+                    noOfFile = len(os.listdir("ImagesUnknown")) + 1
+                    cv2.imwrite("ImagesUnknown\Image" + str(noOfFile) + ".jpg", im[y:y+h, x:x+w])
+                cv2.putText(im, str(tt), (x, y+h), font, 1, (255, 255, 255), 2)
+            attendance = attendance.drop_duplicates(subset = ['ID'], keep = 'first')
+            cv2.imshow('im', im)
+            if (cv2.waitKey(1) == ord('q')):
+                break
+        book.save('Attendance\_' + self.n_course.get() + '-' + str(now.month)+ '.xlsx')
+        cam.release()
+        cv2.destroyAllWindows()
+        ms.showinfo("Done!")
+
+
 
     #Logout
     def logout(self):
@@ -206,7 +276,7 @@ class main:
 
         self.attendancef = Frame(self.master, padx = 10, pady = 10)
         Label(self.attendancef, text = 'Select Course: ', font = ('', 20), pady = 5, padx = 5).grid(sticky = W)
-        ttk.Combobox(self.attendancef, textvariable = self.n_course, values = ["a","b","c","d"], font = ('', 15)).grid(row = 0, column = 1)
+        ttk.Combobox(self.attendancef, textvariable = self.n_course, values = ["MSc CA","MSc CS","MSc IMCA","MA English"], font = ('', 15)).grid(row = 0, column = 1)
         Button(self.attendancef, text = 'Take Attendance', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.track).grid(row = 1, column = 1)
         Button(self.attendancef, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB).grid(row = 1, column = 2)
 
@@ -217,6 +287,7 @@ class main:
         Entry(self.studRegf, textvariable = self.studName, bd = 5, font = ('', 15)).grid(row = 1, column = 1)
         Button(self.studRegf, text = 'Take Image', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.take_images).grid(row = 2, column = 1)
         Button(self.studRegf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB).grid(row = 2, column = 2)
+        Button(self.studRegf, text = 'Save', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.train).grid(row = 3, column = 1)
 
 #Create Window and Application Object
 root = Tk()

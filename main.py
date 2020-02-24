@@ -48,7 +48,8 @@ class main:
         self.options = ["What primary school did you attend?",
                         "What is the middle name of your father?",
                         "What time of the day were you born?",
-                        "What was the last four digits of your first telephone number?"]
+                        "What was your childhood nickname?",]
+
         self.level = open("Course\Level.txt").read().splitlines()
         self.arts = open("Course\Arts.txt").read().splitlines()
         self.science = open("Course\Science.txt").read().splitlines()
@@ -66,12 +67,12 @@ class main:
         #Find user in the database and take proper action
         find_user = ('SELECT * FROM user WHERE username = ? and password = ?')
         c.execute(find_user,[(self.username.get()), (self.password.get())])
-        result = c.fetchall()
+        result = c.fetchone()
         if result:
-            ms.showinfo(self.username.get() + 'succesfully logged in!')
+            ms.showinfo(title = 'Success!', message = self.username.get() + ' logged in!')
             self.dashB()
         else:
-            ms.showerror('Username or Password incorrect!')
+            ms.showerror(title = 'Error', message = 'Username or Password incorrect!')
 
     #New User
     def new_user(self):
@@ -83,9 +84,9 @@ class main:
         find_user = ('SELECT * FROM user WHERE username = ?')
         c.execute(find_user,[(self.username.get())])
         if c.fetchall():
-            ms.showerror('Error!\nUsername already taken!')
+            ms.showerror(title = 'Error!', message = 'Username already taken!')
         else:
-            ms.showinfo('Faculty Registration Completed!')
+            ms.showinfo(title = 'Success!', message = 'Faculty Registration Completed!')
             self.log()
 
         #Create new account
@@ -148,7 +149,7 @@ class main:
             writer = csv.writer(csvFile)
             writer.writerow(row)
         csvFile.close()
-        ms.showinfo(res)
+        ms.showinfo(title = 'Done!', message = res)
 
     def train(self):
         recognizer = cv2.face.LBPHFaceRecognizer_create()
@@ -167,7 +168,7 @@ class main:
 
         recognizer.train(faces, np.array(ids))
         recognizer.save("TrainingImageLabel\Trainer.yml")
-        ms.showinfo("Images Saved Succesfully!")
+        ms.showinfo(title = 'Done!', message = 'Images Saved Succesfully!')
 
     def track(self):
         book = Workbook()
@@ -215,7 +216,7 @@ class main:
         book.save('Attendance\_' + course + '-' + str(now.month)+ '.xlsx')
         cam.release()
         cv2.destroyAllWindows()
-        ms.showinfo("Done!")
+        ms.showinfo(title = 'Done!', message = 'Attandance saved succesfully!')
 
 
 

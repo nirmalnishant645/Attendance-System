@@ -15,7 +15,7 @@ import datetime
 import time
 import sqlite3 as sql
 import shutil
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 #Make database and users table(if doesn't already exist)
 with sql.connect('faculty.db') as db:
@@ -113,8 +113,12 @@ class main:
     def studReg(self):
         self.studID.set('')
         self.studName.set('')
+        self.n_level.set('')
+        self.n_subject.set('')
         self.dashBf.place_forget()
         self.head['text'] = 'Student Registration'
+        self.subCombo = ttk.Combobox(self.studRegf, textvariable = self.n_subject, font = ('', 15))
+        self.subCombo.grid(row = 0, column = 2)
         self.studRegf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
     def take_images(self):
@@ -172,9 +176,15 @@ class main:
         ms.showinfo(title = 'Done!', message = 'Images Saved Succesfully!')
 
     def track(self):
-        book = Workbook()
-        sheet = book.active
+        course = self.n_level.get() + self.n_subject.get()
         now = datetime.datetime.now()
+        fname = r'Attendance\_' + course + '-' + str(now.month)+ '.xlsx'
+        if os.path.isfile(fname):
+            book = load_workbook(fname)
+        else:
+            book = Workbook()
+            book.save(fname)
+        sheet = book.active
         recognizer = cv2.face.LBPHFaceRecognizer_create()
         recognizer.read("TrainingImageLabel\Trainer.yml")
         faceCascade = cv2.CascadeClassifier('data\haarcascade\haarcascade_frontalface_default.xml')
@@ -213,8 +223,7 @@ class main:
             cv2.imshow('im', im)
             if (cv2.waitKey(1) == ord('q')):
                 break
-        course = self.n_level.get() + self.n_subject.get()
-        book.save('Attendance\_' + course + '-' + str(now.month)+ '.xlsx')
+        book.save(fname)
         cam.release()
         cv2.destroyAllWindows()
         ms.showinfo(title = 'Done!', message = 'Attandance saved succesfully!')
@@ -311,18 +320,21 @@ class main:
         Button(self.attendancef, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white').grid(row = 1, column = 2)
 
         self.studRegf = Frame(self.master,  highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
+        Label(self.studRegf, text = 'Select Course: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
+        self.levelCombo = ttk.Combobox(self.studRegf, textvariable = self.n_level, values = self.level, font = ('', 15))
+        self.levelCombo.bind('<<ComboboxSelected>>', self.changeSubject)
+        self.levelCombo.grid(row = 0, column = 1)
         Label(self.studRegf, text = 'ID', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.studRegf, textvariable = self.studID, bd = 5, font = ('', 15), bg = 'white').grid(row = 0, column = 1)
+        Entry(self.studRegf, textvariable = self.studID, bd = 5, font = ('', 15), bg = 'white').grid(row = 1, column = 1)
         Label(self.studRegf, text = 'Name', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.studRegf, textvariable = self.studName, bd = 5, font = ('', 15), bg = 'white').grid(row = 1, column = 1)
-        Button(self.studRegf, text = 'Take Image', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.take_images, bg = 'white').grid(row = 2, column = 1)
-        Button(self.studRegf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white').grid(row = 2, column = 2)
-        Button(self.studRegf, text = 'Save', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.train, bg = 'white').grid(row = 3, column = 1)
+        Entry(self.studRegf, textvariable = self.studName, bd = 5, font = ('', 15), bg = 'white').grid(row = 2, column = 1)
+        Button(self.studRegf, text = 'Take Image', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.take_images, bg = 'white').grid(row = 3, column = 1)
+        Button(self.studRegf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white').grid(row = 3, column = 2)
+        Button(self.studRegf, text = 'Save', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.train, bg = 'white').grid(row = 4, column = 1)
 
 #Create Window and Application Object
 root = Tk()
 root.attributes('-fullscreen', True)
-root.attributes('-topmost', True)
 root.image = tk.PhotoImage(file = 'GUI/banner.gif')
 main(root)
 root.mainloop()

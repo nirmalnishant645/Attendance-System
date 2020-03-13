@@ -16,6 +16,10 @@ import time
 import sqlite3 as sql
 import shutil
 from openpyxl import Workbook, load_workbook
+import webbrowser
+from tempfile import NamedTemporaryFile
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QScrollArea, QTableWidget, QVBoxLayout, QTableWidgetItem
 
 #Make database and users table(if doesn't already exist)
 with sql.connect('faculty.db') as db:
@@ -46,6 +50,10 @@ class main:
         self.studID = StringVar()
         self.studName = StringVar()
         self.n_subject = StringVar()
+        self.year = StringVar()
+        self.n_year = StringVar()
+        self.month = StringVar()
+        self.n_month = StringVar()
         self.options = ["What primary school did you attend?",
                         "What is the middle name of your father?",
                         "What time of the day were you born?",
@@ -55,6 +63,8 @@ class main:
         self.arts = open("Course\Arts.txt").read().splitlines()
         self.science = open("Course\Science.txt").read().splitlines()
         self.courses = {"BA": self.arts, "BSc": self.science, "MA":self.arts, "MSc": self.science}
+        self.year = ['First Year', 'Second Year', 'Third Year']
+        self.month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
         #Widgets
         self.widgets()
@@ -100,14 +110,53 @@ class main:
         self.n_level.set('')
         self.n_subject.set('')
         self.dashBf.place_forget()
-        self.head['text'] = 'Attendance'
         self.subCombo = ttk.Combobox(self.attendancef, textvariable = self.n_subject, font = ('', 15))
-        self.subCombo.grid(row = 0, column = 2)
+        self.subCombo.grid(row = 1, column = 2)
         self.attendancef.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
     #Report
     def report(self):
-        return None
+        self.studID.set('')
+        self.studName.set('')
+        self.n_level.set('')
+        self.n_subject.set('')
+        self.n_year.set('')
+        self.dashBf.place_forget()
+        self.subCombo = ttk.Combobox(self.reportf, textvariable = self.n_subject, font = ('', 15))
+        self.subCombo.grid(row = 1, column = 2)
+        self.reportf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
+
+    def class_report(self):
+        files = os.listdir('Attendance/')
+        course = self.n_level.get() + self.n_subject.get()
+        month = self.n_month.get()
+        month = self.month.index(month) + 1
+        file = '_' + course + '-' + str(month) + '.xlsx'
+        if file in files:
+            df = pd.read_excel('Attendance/' + file)
+            app = QApplication(sys.argv)
+            win = QWidget()
+            scroll = QScrollArea()
+            layout = QVBoxLayout()
+            table = QTableWidget()
+            scroll.setWidget(table)
+            layout.addWidget(table)
+            win.setLayout(layout)
+            QWidget.setWindowTitle(win, 'Report')
+            date = [str(i) for i in range(32)]
+            table.setColumnCount(len(df.columns))
+            table.setRowCount(len(df.index))
+            table.setHorizontalHeaderLabels(date)
+            for i in range(len(df.index)):
+                for j in range(len(df.columns)):
+                    table.setItem(i, j, QTableWidgetItem(str(df.iloc[i, j])))
+            win.show()
+            app.exec_()
+        else:
+            ms.showerror(title = 'Error!', message = 'Record for selected Course and Month does not exist!')
+
+    def student_report(self):
+        return
 
     #Student Registration
     def studReg(self):
@@ -115,19 +164,29 @@ class main:
         self.studName.set('')
         self.n_level.set('')
         self.n_subject.set('')
+        self.n_year.set('')
         self.dashBf.place_forget()
-        self.head['text'] = 'Student Registration'
         self.subCombo = ttk.Combobox(self.studRegf, textvariable = self.n_subject, font = ('', 15))
-        self.subCombo.grid(row = 0, column = 2)
+        self.subCombo.grid(row = 1, column = 2)
         self.studRegf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
     def take_images(self):
         cam = cv2.VideoCapture(0)
         id = self.studID.get()
         name = self.studName.get()
-        #harcascadePath = "data/haarcascade/haarcascade_frontalface_default.xml"
+        course = self.n_level.get() + self.n_subject.get() + self.n_year.get()
         detector = cv2.CascadeClassifier('data\haarcascade\haarcascade_frontalface_default.xml')
         sampleNum = 0
+        row = [course, id , name]
+        with open('StudentDetails\StudentDetails.csv','r') as csvFile:
+            reader = csv.reader(csvFile, delimiter = '\t')
+            for line in reader:
+                if line:
+                    line = line[0].split(',')
+                    if line[0] == row[0] and line[1] == row[1]:
+                        ms.showerror(title = 'Error!', message = 'Student with course, '+course+' and ID, '+id+' alrady exist with name, '+line[2])
+                        csvFile.close()
+                        return
         while True:
             ret, img = cam.read()
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -149,7 +208,6 @@ class main:
         cam.release()
         cv2.destroyAllWindows()
         res = "Images Saved for ID : " + id +" Name : "+ name
-        row = [id , name]
         with open('StudentDetails\StudentDetails.csv','a+') as csvFile:
             writer = csv.writer(csvFile)
             writer.writerow(row)
@@ -195,6 +253,7 @@ class main:
         attendance = pd.DataFrame(columns = col_names)
         for i in range(1, 32):
             sheet.cell(row = 1, column = i+1).value = str(i) + '-' + str(now.month)
+        sheet.cell(row = 1, column = 1).value = self.month[now.month - 1]
         while True:
             ret, im = cam.read()
             gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -240,7 +299,6 @@ class main:
         self.username.set('')
         self.password.set('')
         self.regf.place_forget()
-        self.head['text'] = 'Login'
         self.logf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
     def reg(self):
@@ -250,19 +308,20 @@ class main:
         self.n_question.set('')
         self.n_answer.set('')
         self.logf.place_forget()
-        self.head['text'] = 'Register'
-        self.regf.place(relx = 0.5, rely = 0.6, anchor = CENTER)
+        self.regf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
     def dashB(self):
         self.attendancef.place_forget()
         self.studRegf.place_forget()
+        self.reportf.place_forget()
         self.logf.place_forget()
         with sql.connect('faculty.db') as db:
             c = db.cursor()
         find_name = ('SELECT name FROM user WHERE username = ?')
         c.execute(find_name,[(self.username.get())])
         name = c.fetchone()
-        self.head['text'] = 'Welcome ' + name[0]
+        name = name[0].split()
+        self.head['text'] = name[0]
         self.dashBf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
     def changeSubject(self, event):
@@ -271,66 +330,99 @@ class main:
     def close(self):
         root.destroy()
 
+
     #Draw widgets
     def widgets(self):
         self.background_label = Label(self.master, image = root.image)
         self.background_label.place(x = 0, y = 0, relwidth = 1, relheight = 1)
-        self.head = Label(self.master, text = 'Login', font = ('', 35), bg = 'white', borderwidth = 3, relief = 'solid')
         Button(self.master, text = 'X', font = ('', 12), command = self.close).place(relx = 0.97, rely = 0.001)
-        self.head.place(relx = 0.5, rely = 0.3, anchor = CENTER)
 
         self.logf = Frame(self.master, highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
+        Label(self.logf, text = 'Login', font = ('', 35), bg = 'white').grid(sticky = W, row = 0, column = 1)
+        Label(self.logf, text = '', font = ('', 25), bg = 'white').grid(row = 1, column = 1)
         Label(self.logf, text = 'Username: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 2, column = 0)
-        Entry(self.logf, textvariable = self.username, bd = 5, font = ('', 15), bg = 'white').grid(sticky = E, row = 2, column = 1)
+        Entry(self.logf, textvariable = self.username, bd = 5, font = ('', 15), bg = 'white', width = 23).grid(sticky = W, row = 2, column = 1)
         Label(self.logf, text = 'Password: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 4, column = 0)
-        Entry(self.logf, textvariable = self.password, bd = 5, font = ('', 15), show = '*', bg = 'white').grid(sticky = E, row = 4, column = 1)
+        Entry(self.logf, textvariable = self.password, bd = 5, font = ('', 15), show = '*', bg = 'white', width = 23).grid(sticky = W, row = 4, column = 1)
+        Label(self.logf, text = '', font = ('', 5), bg = 'white').grid(row = 4, column = 2)
+        Label(self.logf, text = '', font = ('', 5), bg = 'white').grid(row = 5, column = 0)
         Button(self.logf, text = ' Register ', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.reg, bg = 'white').grid(row = 6, column = 0)
-        Button(self.logf, text = ' Login ', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.login, bg = 'white').grid(row = 6, column = 1)
+        Button(self.logf, text = ' Login ', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.login, bg  = 'white').grid(row = 6, column = 1)
         self.logf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
         self.regf = Frame(self.master,  highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
-        Label(self.regf, text = 'Name: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.regf, textvariable = self.n_name, bd = 5, font = ('', 15), bg = 'white').grid(row = 0, column = 1)
+        Label(self.regf, text = 'Registration', font = ('', 30), bg = 'white').grid(sticky = W, row = 0, column = 1)
+        Label(self.regf, text = '', font = ('', 20), bg = 'white').grid(row = 1, column = 1)
+        Label(self.regf, text = 'Name: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 2, column = 0)
+        Entry(self.regf, textvariable = self.n_name, bd = 5, font = ('', 15), bg = 'white').grid(row = 2, column = 1)
         Label(self.regf, text = 'Username: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.regf, textvariable = self.n_username, bd = 5, font = ('', 15), bg = 'white').grid(row = 1, column = 1)
+        Entry(self.regf, textvariable = self.n_username, bd = 5, font = ('', 15), bg = 'white').grid(row = 3, column = 1)
         Label(self.regf, text = 'Password: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.regf, textvariable = self.n_password, bd = 5, font = ('', 15), show = '*', bg = 'white').grid(row = 2, column = 1)
+        Entry(self.regf, textvariable = self.n_password, bd = 5, font = ('', 15), show = '*', bg = 'white').grid(row = 4, column = 1)
         Label(self.regf, text = 'Security Question: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        ttk.Combobox(self.regf, textvariable = self.n_question, values = self.options, font = ('', 15)).grid(row = 3, column = 1)
-        Label(self.regf, text = 'Answer: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.regf, textvariable = self.n_answer, bd = 5, font = ('', 15), show = '*', bg = 'white').grid(row = 4, column = 1)
-        Button(self.regf, text = 'Register', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.new_user, bg = 'white').grid(row = 5, column = 1)
-        Button(self.regf, text = 'Go to Login', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.log, bg = 'white').grid(row = 5, column = 2)
+        ttk.Combobox(self.regf, textvariable = self.n_question, values = self.options, font = ('', 15)).grid(row = 5, column = 1)
+        Label(self.regf, text = 'Security Answer: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
+        Entry(self.regf, textvariable = self.n_answer, bd = 5, font = ('', 15), show = '*', bg = 'white').grid(row = 6, column = 1)
+        Button(self.regf, text = 'Register', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.new_user, bg = 'white').grid(row = 7, column = 1)
+        Button(self.regf, text = 'Go to Login', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.log, bg = 'white').grid(sticky = E, row = 7, column = 3)
 
         self.dashBf = Frame(self.master,  highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
-        Button(self.dashBf, text = 'Attendance', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.attendance, bg = 'white').grid(sticky = W, row = 0, column = 0)
-        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 0, column = 1)
-        Button(self.dashBf, text = 'Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.report, bg = 'white').grid(row = 0, column = 2)
-        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(sticky = W + E)
-        Button(self.dashBf, text = 'Student Registration', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.studReg, bg = 'white').grid(row = 2, column = 0)
-        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 2, column = 1)
-        Button(self.dashBf, text = 'Logout', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.logout, bg = 'white').grid(row = 2, column = 2)
+        Label(self.dashBf, text = 'Welcome', font = ('', 30), bg = 'white').grid(sticky = E, row = 0, column = 3)
+        self.head = Label(self.dashBf, text = '', font = ('', 30), bg = 'white')
+        self.head.grid(sticky = W, row = 0, column = 5)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 1, column = 4)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 0, column = 4)
+        Label(self.dashBf, text = '', font = ('', 35), padx = 5, pady = 5, bg = 'white').grid(row = 2, column = 1)
+        Button(self.dashBf, text = 'Attendance', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.attendance, bg = 'white', width = 20).grid(sticky = W, row = 2, column = 3)
+        Button(self.dashBf, text = 'View Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.report, bg = 'white', width = 20).grid(sticky = E, row = 2, column = 5)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 2, column = 6)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 3, column = 3)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 3, column = 5)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 4, column = 1)
+        Button(self.dashBf, text = 'Student Registration', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.studReg, bg = 'white', width = 20).grid(sticky = W, row = 4, column = 3)
+        Button(self.dashBf, text = 'Logout', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.logout, bg = 'white', width = 20).grid(sticky = E, row = 4, column = 5)
+        Label(self.dashBf, text = '', padx = 5, pady = 5, bg = 'white').grid(row = 4, column = 6)
 
         self.attendancef = Frame(self.master,  highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
-        Label(self.attendancef, text = 'Select Course: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
+        Label(self.attendancef, text = 'Attendance', font = ('', 30), bg = 'white').grid(sticky = W, row = 0, column = 1)
+        Label(self.attendancef, text = 'Select Course: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 1, column = 0)
         self.levelCombo = ttk.Combobox(self.attendancef, textvariable = self.n_level, values = self.level, font = ('', 15))
         self.levelCombo.bind('<<ComboboxSelected>>', self.changeSubject)
-        self.levelCombo.grid(row = 0, column = 1)
-        Button(self.attendancef, text = 'Take Attendance', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.track, bg = 'white').grid(row = 1, column = 1)
-        Button(self.attendancef, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white').grid(row = 1, column = 2)
+        self.levelCombo.grid(row = 1, column = 1)
+        Button(self.attendancef, text = 'Take Attendance', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.track, bg = 'white').grid(row = 2, column = 1)
+        Button(self.attendancef, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white').grid(row = 2, column = 2)
 
         self.studRegf = Frame(self.master,  highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
-        Label(self.studRegf, text = 'Select Course: ', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
+        Label(self.studRegf, text = 'Student Registration', font = ('', 30), bg = 'white').grid(sticky = W, row = 0, column = 1)
+        Label(self.studRegf, text = 'Select Course', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 1, column = 0)
         self.levelCombo = ttk.Combobox(self.studRegf, textvariable = self.n_level, values = self.level, font = ('', 15))
         self.levelCombo.bind('<<ComboboxSelected>>', self.changeSubject)
-        self.levelCombo.grid(row = 0, column = 1)
-        Label(self.studRegf, text = 'ID', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.studRegf, textvariable = self.studID, bd = 5, font = ('', 15), bg = 'white').grid(row = 1, column = 1)
-        Label(self.studRegf, text = 'Name', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W)
-        Entry(self.studRegf, textvariable = self.studName, bd = 5, font = ('', 15), bg = 'white').grid(row = 2, column = 1)
-        Button(self.studRegf, text = 'Take Image', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.take_images, bg = 'white').grid(row = 3, column = 1)
-        Button(self.studRegf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white').grid(row = 3, column = 2)
-        Button(self.studRegf, text = 'Save', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.train, bg = 'white').grid(row = 4, column = 1)
+        self.levelCombo.grid(row = 1, column = 1)
+        Label(self.studRegf, text = 'Year', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 2, column = 0)
+        self.yearCombo = ttk.Combobox(self.studRegf, textvariable = self.n_year, values = self.year, font = ('', 15))
+        self.yearCombo.grid(row = 2, column = 1)
+        Label(self.studRegf, text = '', pady = 5, padx = 5, bg = 'white').grid(row = 1, column = 3)
+        Label(self.studRegf, text = 'ID', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 3, column = 0)
+        Entry(self.studRegf, textvariable = self.studID, bd = 5, font = ('', 15), bg = 'white').grid(row = 3, column = 1)
+        Label(self.studRegf, text = 'Name', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 4, column = 0)
+        Entry(self.studRegf, textvariable = self.studName, bd = 5, font = ('', 15), bg = 'white').grid(row = 4, column = 1)
+        Button(self.studRegf, text = 'Take Image', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.take_images, bg = 'white').grid(sticky = W, row = 5, column = 1)
+        Button(self.studRegf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white', width = 10).grid(sticky = E, row = 5, column = 2)
+        Button(self.studRegf, text = 'Save', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.train, bg = 'white', width = 10).grid(sticky = E, row = 5, column = 1)
+
+        self.reportf = Frame(self.master,  highlightbackground = 'black', highlightcolor = 'black', highlightthickness = 3, bg = 'white')
+        Label(self.reportf, text = 'Reports', font = ('', 30), bg = 'white').grid(sticky = W, row = 0, column = 1)
+        Label(self.reportf, text = 'Select Course', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 1, column = 0)
+        self.levelCombo = ttk.Combobox(self.reportf, textvariable = self.n_level, values = self.level, font = ('', 15))
+        self.levelCombo.bind('<<ComboboxSelected>>', self.changeSubject)
+        self.levelCombo.grid(row = 1, column = 1)
+        Label(self.reportf, text = 'Month', font = ('', 20), pady = 5, padx = 5, bg = 'white').grid(sticky = W, row = 2, column = 0)
+        self.yearCombo = ttk.Combobox(self.reportf, textvariable = self.n_month, values = self.month, font = ('', 15))
+        self.yearCombo.grid(row = 2, column = 1)
+        Label(self.reportf, text = '', pady = 5, padx = 5, bg = 'white').grid(row = 1, column = 3)
+        Button(self.reportf, text = 'Class Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.class_report, bg = 'white').grid(sticky = E, row = 5, column = 0)
+        Button(self.reportf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white', width = 10).grid(sticky = E, row = 5, column = 2)
+        Button(self.reportf, text = 'Student Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.student_report, bg = 'white').grid(sticky = E, row = 5, column = 1)
 
 #Create Window and Application Object
 root = Tk()

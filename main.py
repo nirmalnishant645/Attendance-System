@@ -20,6 +20,7 @@ import webbrowser
 from tempfile import NamedTemporaryFile
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QScrollArea, QTableWidget, QVBoxLayout, QTableWidgetItem
+import matplotlib.pyplot as plt
 
 #Make database and users table(if doesn't already exist)
 with sql.connect('faculty.db') as db:
@@ -93,17 +94,16 @@ class main:
 
         #Find existing username (if any), take proper action
         find_user = ('SELECT * FROM user WHERE username = ?')
-        c.execute(find_user,[(self.username.get())])
-        if c.fetchall():
+        c.execute(find_user,[(self.n_username.get())])
+        if c.fetchone():
             ms.showerror(title = 'Error!', message = 'Username already taken!')
         else:
             ms.showinfo(title = 'Success!', message = 'Faculty Registration Completed!')
             self.log()
-
-        #Create new account
-        insert = 'INSERT INTO user(name, username, password, question, answer) values(?, ?, ?, ?, ?)'
-        c.execute(insert,[(self.n_name.get()),(self.n_username.get()),(self.n_password.get()),(self.n_question.get()),(self.n_answer.get())])
-        db.commit()
+            #Create new account
+            insert = 'INSERT INTO user(name, username, password, question, answer) values(?, ?, ?, ?, ?)'
+            c.execute(insert,[(self.n_name.get()),(self.n_username.get()),(self.n_password.get()),(self.n_question.get()),(self.n_answer.get())])
+            db.commit()
 
     #Attendance
     def attendance(self):
@@ -142,21 +142,52 @@ class main:
             scroll.setWidget(table)
             layout.addWidget(table)
             win.setLayout(layout)
-            QWidget.setWindowTitle(win, 'Report')
+            QWidget.setWindowTitle(win, 'Attendance Sheet')
             date = [str(i) for i in range(32)]
+            date[0] = 'Roll No. - Name'
+            now = datetime.datetime.now()
+            if month == int(now.month):
+                ts = time.time()
+                date1 = datetime.datetime.fromtimestamp(ts).strftime('%d')
+                column_name = {str(i) + '-' + str(month) : 'Absent' for i in range(int(date1) + 1)}
+            else:
+                column_name = {str(i) + '-' + str(month) : 'Absent' for i in range(32)}
+            df.fillna(column_name, inplace = True)
             table.setColumnCount(len(df.columns))
             table.setRowCount(len(df.index))
             table.setHorizontalHeaderLabels(date)
             for i in range(len(df.index)):
                 for j in range(len(df.columns)):
                     table.setItem(i, j, QTableWidgetItem(str(df.iloc[i, j])))
-            win.show()
+            win.showMaximized()
             app.exec_()
         else:
             ms.showerror(title = 'Error!', message = 'Record for selected Course and Month does not exist!')
 
     def student_report(self):
-        return
+        files = os.listdir('Attendance/')
+        course = self.n_level.get() + self.n_subject.get()
+        month = self.n_month.get()
+        month = self.month.index(month) + 1
+        file = '_' + course + '-' + str(month) + '.xlsx'
+        if file in files:
+            df = pd.read_excel('Attendance/' + file)
+            present = {'Present'}
+            df2 = pd.DataFrame()
+            df2['Students'] = df[self.n_month.get()]
+            df2['Total Present'] = df.isin(present).sum(1)
+            histo = {}
+            for i in range(len(df2.index)):
+                histo[df2['Students'][i]] = df2['Total Present'][i]
+            plt.bar(range(len(histo)), list(histo.values()), align = 'center')
+            plt.xticks(range(len(histo)), list(histo.keys()), rotation = 'vertical')
+            plt.subplots_adjust(left = 0.05, bottom = 0.3, right = 0.95, top = 0.95 )
+            plt.title('Student Report')
+            mng = plt.get_current_fig_manager()
+            mng.window.state('zoomed')
+            plt.show()
+        else:
+            ms.showerror(title = 'Error!', message = 'Record for selected Course and Month does not exist!')
 
     #Student Registration
     def studReg(self):
@@ -267,8 +298,11 @@ class main:
                     timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
                     aa = df.loc[df['ID'] == id]['Name'].values
                     tt = str(id) + "-" + aa
+                    stud_name = str(aa)
+                    stud_name = stud_name.replace('[', '').replace(']', '')
+                    stud_name = stud_name[1:-1]
                     attendance.loc[len(attendance)] = [id, aa, date, timeStamp]
-                    sheet.cell(row = int(id) + 1, column = 1).value = str(tt)
+                    sheet.cell(row = int(id) + 1, column = 1).value = str(stud_name)
                     sheet.cell(row = int(id) + 1, column = int(now.day) + 1).value = "Present"
 
                 else:
@@ -420,9 +454,9 @@ class main:
         self.yearCombo = ttk.Combobox(self.reportf, textvariable = self.n_month, values = self.month, font = ('', 15))
         self.yearCombo.grid(row = 2, column = 1)
         Label(self.reportf, text = '', pady = 5, padx = 5, bg = 'white').grid(row = 1, column = 3)
-        Button(self.reportf, text = 'Class Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.class_report, bg = 'white').grid(sticky = E, row = 5, column = 0)
-        Button(self.reportf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white', width = 10).grid(sticky = E, row = 5, column = 2)
-        Button(self.reportf, text = 'Student Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.student_report, bg = 'white').grid(sticky = E, row = 5, column = 1)
+        Button(self.reportf, text = 'Attendance Sheet', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.class_report, bg = 'white').grid(sticky = E, row = 5, column = 1)
+        Button(self.reportf, text = 'Back', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.dashB, bg = 'white', width = 10).grid(sticky = E, row = 5, column = 0)
+        Button(self.reportf, text = 'Student Report', bd = 3, font = ('', 15), padx = 5, pady = 5, command = self.student_report, bg = 'white').grid(sticky = E, row = 5, column = 2)
 
 #Create Window and Application Object
 root = Tk()

@@ -134,6 +134,9 @@ class main:
         file = '_' + course + '-' + str(month) + '.xlsx'
         if file in files:
             df = pd.read_excel('Attendance/' + file)
+            df = df[df[self.month[month - 1]].notna()]
+            present = {'Present'}
+            df['Total Present'] = df.isin(present).sum(1)
             app = QApplication(sys.argv)
             win = QWidget()
             scroll = QScrollArea()
@@ -143,8 +146,9 @@ class main:
             layout.addWidget(table)
             win.setLayout(layout)
             QWidget.setWindowTitle(win, 'Attendance Sheet')
-            date = [str(i) for i in range(32)]
+            date = [str(i) for i in range(33)]
             date[0] = 'Roll No. - Name'
+            date[-1] = 'Total Present'
             now = datetime.datetime.now()
             if month == int(now.month):
                 ts = time.time()
@@ -176,12 +180,17 @@ class main:
             df2 = pd.DataFrame()
             df2['Students'] = df[self.n_month.get()]
             df2['Total Present'] = df.isin(present).sum(1)
+            #print(df2)
             histo = {}
             for i in range(len(df2.index)):
-                histo[df2['Students'][i]] = df2['Total Present'][i]
+                if type(df2['Students'][i]) == str:
+                    histo[df2['Students'][i]] = df2['Total Present'][i]
             plt.bar(range(len(histo)), list(histo.values()), align = 'center')
             plt.xticks(range(len(histo)), list(histo.keys()), rotation = 'vertical')
             plt.subplots_adjust(left = 0.05, bottom = 0.3, right = 0.95, top = 0.95 )
+            labels = list(histo.values())
+            for i in range(len(histo)):
+                plt.text(x = i, y = int(labels[i]), s = labels[i])
             plt.title('Student Report')
             mng = plt.get_current_fig_manager()
             mng.window.state('zoomed')
@@ -254,11 +263,12 @@ class main:
         ids = []
 
         for imagePath in imagePaths:
-            pilImage = Image.open(imagePath).convert('L')
-            imageNP = np.array(pilImage, 'uint8')
-            id = int(os.path.split(imagePath)[-1].split(".")[1])
-            faces.append(imageNP)
-            ids.append(id)
+            if imagePath != 'TrainingImage\\readme.jpg':
+                pilImage = Image.open(imagePath).convert('L')
+                imageNP = np.array(pilImage, 'uint8')
+                id = int(os.path.split(imagePath)[-1].split(".")[1])
+                faces.append(imageNP)
+                ids.append(id)
 
         recognizer.train(faces, np.array(ids))
         recognizer.save("TrainingImageLabel\Trainer.yml")
@@ -298,7 +308,7 @@ class main:
                     timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
                     aa = df.loc[df['ID'] == id]['Name'].values
                     tt = str(id) + "-" + aa
-                    stud_name = str(aa)
+                    stud_name = str(tt)
                     stud_name = stud_name.replace('[', '').replace(']', '')
                     stud_name = stud_name[1:-1]
                     attendance.loc[len(attendance)] = [id, aa, date, timeStamp]

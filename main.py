@@ -125,7 +125,8 @@ class main:
         self.subCombo = ttk.Combobox(self.reportf, textvariable = self.n_subject, font = ('', 15))
         self.subCombo.grid(row = 1, column = 2)
         self.reportf.place(relx = 0.5, rely = 0.5, anchor = CENTER)
-
+    
+    # Attendance Sheet
     def class_report(self):
         files = os.listdir('Attendance/')
         course = self.n_level.get() + self.n_subject.get()
@@ -168,6 +169,7 @@ class main:
         else:
             ms.showerror(title = 'Error!', message = 'Record for selected Course and Month does not exist!')
 
+    # Graph
     def student_report(self):
         files = os.listdir('Attendance/')
         course = self.n_level.get() + self.n_subject.get()
